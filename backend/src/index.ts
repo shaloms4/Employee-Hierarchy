@@ -85,7 +85,6 @@ app.get('/positions/:id', async (c) => {
   return c.json(position); // Return only the position details without children
 });
 
-// Endpoint to create a new position
 app.post('/positions', async (c) => {
   const { name, description, parentId } = await c.req.json();
 
@@ -102,6 +101,7 @@ app.post('/positions', async (c) => {
   return c.json(result);
 });
 
+
 // Endpoint to update a position
 app.put('/positions/:id', async (c) => {
   const { name, description, parentId } = await c.req.json();
@@ -110,23 +110,36 @@ app.put('/positions/:id', async (c) => {
   const result = await db.update(positions)
     .set({ name, description, parentId })
     .where(sql`${positions.id} = ${id}`);
-
-  return c.json(result);
+  const updatedPosition = await db.select().from(positions).where(sql`${positions.id} = ${id}`);
+  const updated = updatedPosition[0]
+  return c.json({ message:'Updated Position',updated});
 });
 
 // Endpoint to delete a position
 app.delete('/positions/:id', async (c) => {
   const { id } = c.req.param();
+
+  // Fetch the position details before deleting
+  const positionToDelete = await db.select().from(positions).where(sql`${positions.id} = ${id}`).limit(1);
   
+  if (positionToDelete.length === 0) {
+    return c.json({ message: 'Position not found' }, 404);
+  }
+
   // Check if the position has children before deleting
   const children = await db.select().from(positions).where(sql`${positions.parentId} = ${id}`);
   if (children.length > 0) {
     return c.json({ message: 'Cannot delete parent because it has children' }, 400);
   }
 
-  const result = await db.delete(positions).where(sql`${positions.id} = ${id}`);
-  return c.json(result);
+  // Perform the deletion
+  await db.delete(positions).where(sql`${positions.id} = ${id}`);
+
+  // Return the deleted position's details
+  const deletedPosition = positionToDelete[0]; // The deleted position details
+  return c.json({ message: 'Position deleted', deletedPosition });
 });
+
 
 serve({
   fetch: app.fetch,
