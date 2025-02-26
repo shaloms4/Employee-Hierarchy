@@ -96,6 +96,9 @@ app.post('/positions', async (c) => {
       return c.json({ message: 'A parent with null id already exists. Only one parent with null id is allowed.' }, 400);
     }
   }
+  if (parentId === undefined) {
+    return c.json({ message: 'ParentId is required' }, 400);
+  }
 
   const result = await db.insert(positions).values({ name, description, parentId });
   return c.json(result);

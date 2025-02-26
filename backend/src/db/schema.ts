@@ -7,7 +7,7 @@ import { pgTable, uuid, varchar, text } from "drizzle-orm/pg-core";
 export const positions = pgTable("positions", {
   id: uuid().primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
+  description: text("description").notNull(),
   parentId: uuid(), 
 });
 
