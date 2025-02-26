@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
-import { db } from '../src/db/db.js';  // Your drizzle-orm database connection
+import { db } from '../src/db/db.js'; // Your drizzle-orm database connection
 import { positions } from '../src/db/schema.js'; // Your schema
 import { sql } from 'drizzle-orm';
 import { serve } from '@hono/node-server';
+import { positionSchema } from '../src/db/schema.js'; // Import Zod schema for validation
 
 const app = new Hono();
 
@@ -85,8 +86,19 @@ app.get('/positions/:id', async (c) => {
   return c.json(position); // Return only the position details without children
 });
 
+// Endpoint to create a new position with validation using Zod
 app.post('/positions', async (c) => {
-  const { name, description, parentId } = await c.req.json();
+  const body = await c.req.json();
+
+  // Validate the incoming data using the Zod schema
+  const parsedData = positionSchema.safeParse(body);
+
+  if (!parsedData.success) {
+    // Return validation errors if the data doesn't match the schema
+    return c.json({ message: 'Invalid data', errors: parsedData.error.errors }, 400);
+  }
+
+  const { name, description, parentId } = parsedData.data;
 
   // Check if there is already a parent with null id
   if (parentId === null) {
@@ -96,26 +108,33 @@ app.post('/positions', async (c) => {
       return c.json({ message: 'A parent with null id already exists. Only one parent with null id is allowed.' }, 400);
     }
   }
-  if (parentId === undefined) {
-    return c.json({ message: 'ParentId is required' }, 400);
-  }
 
   const result = await db.insert(positions).values({ name, description, parentId });
   return c.json(result);
 });
 
-
 // Endpoint to update a position
 app.put('/positions/:id', async (c) => {
-  const { name, description, parentId } = await c.req.json();
+  const body = await c.req.json();
   const { id } = c.req.param();
+
+  // Validate the incoming data using the Zod schema
+  const parsedData = positionSchema.safeParse(body);
+
+  if (!parsedData.success) {
+    return c.json({ message: 'Invalid data', errors: parsedData.error.errors }, 400);
+  }
+
+  const { name, description, parentId } = parsedData.data;
 
   const result = await db.update(positions)
     .set({ name, description, parentId })
     .where(sql`${positions.id} = ${id}`);
+  
   const updatedPosition = await db.select().from(positions).where(sql`${positions.id} = ${id}`);
-  const updated = updatedPosition[0]
-  return c.json({ message:'Updated Position',updated});
+  const updated = updatedPosition[0];
+
+  return c.json({ message: 'Updated Position', updated });
 });
 
 // Endpoint to delete a position
@@ -142,7 +161,6 @@ app.delete('/positions/:id', async (c) => {
   const deletedPosition = positionToDelete[0]; // The deleted position details
   return c.json({ message: 'Position deleted', deletedPosition });
 });
-
 
 serve({
   fetch: app.fetch,
