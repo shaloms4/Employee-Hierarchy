@@ -58,7 +58,7 @@ app.get('/positions', async (c) => {
 });
 
 // Endpoint to get a single position with its children
-app.get('/positions/:id', async (c) => {
+app.get('/positions-children/:id', async (c) => {
   const { id } = c.req.param();
   const result = await getPositionWithChildren(id); // Fetch the position and its children
 
@@ -67,6 +67,22 @@ app.get('/positions/:id', async (c) => {
   }
 
   return c.json(result);
+});
+
+// Endpoint to get a single position without its children
+app.get('/positions/:id', async (c) => {
+  const { id } = c.req.param();
+
+  // Fetch the position without children
+  const positionResult = await db.select().from(positions).where(sql`${positions.id} = ${id}`);
+
+  const position = positionResult[0]; // Manually extract the first record if it exists
+
+  if (!position) {
+    return c.json({ message: 'Position not found' }, 404);
+  }
+
+  return c.json(position); // Return only the position details without children
 });
 
 // Endpoint to create a new position
