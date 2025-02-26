@@ -8,6 +8,6 @@ export const positions = pgTable("positions", {
   id: uuid().primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
-  parentId: uuid(), // parentId is a UUID and nullable
+  parentId: uuid(), 
 });
 
