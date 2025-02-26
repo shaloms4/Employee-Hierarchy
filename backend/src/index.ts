@@ -35,6 +35,28 @@ const getPositionWithChildren = async (parentId: string | null): Promise<any> =>
   };
 };
 
+// Function to get all positions with their hierarchy
+const getAllPositionsWithHierarchy = async (): Promise<any> => {
+  // Fetch the top-level positions (those with no parent)
+  const topPositions = await db.select().from(positions).where(sql`${positions.parentId} IS NULL`);
+
+  // For each top-level position, recursively get its children
+  const positionsWithHierarchy = await Promise.all(
+    topPositions.map(async (position) => {
+      return await getPositionWithChildren(position.id); // Get each position with its children
+    })
+  );
+
+  return positionsWithHierarchy;
+};
+
+// Endpoint to get all positions with hierarchy
+app.get('/positions', async (c) => {
+  const positionsWithHierarchy = await getAllPositionsWithHierarchy();
+
+  return c.json(positionsWithHierarchy);
+});
+
 // Endpoint to get a single position with its children
 app.get('/positions/:id', async (c) => {
   const { id } = c.req.param();
@@ -50,6 +72,16 @@ app.get('/positions/:id', async (c) => {
 // Endpoint to create a new position
 app.post('/positions', async (c) => {
   const { name, description, parentId } = await c.req.json();
+
+  // Check if there is already a parent with null id
+  if (parentId === null) {
+    const existingParent = await db.select().from(positions).where(sql`${positions.parentId} IS NULL`);
+
+    if (existingParent.length > 0) {
+      return c.json({ message: 'A parent with null id already exists. Only one parent with null id is allowed.' }, 400);
+    }
+  }
+
   const result = await db.insert(positions).values({ name, description, parentId });
   return c.json(result);
 });
